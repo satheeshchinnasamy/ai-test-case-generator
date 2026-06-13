@@ -85,8 +85,7 @@ Return exactly in this format:
   ]
 }
 
-Generate minimum 8 test cases covering positive, negative, and edge cases.
-Type must be one of: Positive, Negative, Edge Case
+"Generate the number of test cases specified in the user prompt, covering positive, negative, and edge cases."
 
 STRICT RULES:
 - Title must describe WHAT is being tested only. Example: "Verify valid login with correct credentials"

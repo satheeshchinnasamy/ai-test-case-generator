@@ -39,3 +39,6 @@ An AI-powered tool that generates structured test cases from User Stories instan
 - Excel download
 - Error handling
 - Fixed Title and Type separation
+
+## 🌐 Live Demo
+https://ai-test-case-generator-mzplbzgsd4dn4zfodugdqe.streamlit.app

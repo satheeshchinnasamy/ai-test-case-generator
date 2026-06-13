@@ -39,6 +39,14 @@ us_ac = st.text_area("Acceptance Criteria",
 st.divider()
 
 # --- BUTTON ---
+def build_prompt(title, description, ac, num_cases=7, domain="General"):
+    return f"""
+    User Story Title : {title}
+    User Story Description : {description}
+    Acceptance Criteria : {ac}
+    Generate {num_cases} test cases for a {domain} application.
+    """
+
 if st.button("🚀 Generate Test Cases"):
 
     # Validation
@@ -52,14 +60,7 @@ if st.button("🚀 Generate Test Cases"):
     else:
         with st.spinner("Generating test cases..."):
 
-            prompt = f"""
-User Story Title: {us_title}
-
-User Story Description: {us_description}
-
-Acceptance Criteria:
-{us_ac}
-"""
+            prompt = build_prompt(us_title, us_description, us_ac)
 
             response = client.chat.completions.create(
                 model="llama-3.1-8b-instant",

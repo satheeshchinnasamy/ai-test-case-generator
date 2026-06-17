@@ -5,6 +5,7 @@ import json
 import os
 from io import BytesIO
 from dotenv import load_dotenv
+import datetime
 
 # --- SETUP ---
 load_dotenv()
@@ -75,6 +76,28 @@ def convert_to_excel(df):
     buffer.seek(0)
     return buffer
 
+def save_history(title, test_cases):
+    import datetime
+    record={
+        "timestamp": str(datetime.datetime.now()),
+        "us_title" : title,
+        "test_cases" : test_cases
+    }
+    with open("history.json", "a") as f:
+        f.write(json.dumps(record) + "\n")
+
+def load_history():
+    if not os.path.exists("history.json"):
+        return[]
+    records=[]
+    with open("history.json", "r") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                records.append(json.loads(line))
+    return records
+
+
 # --- PAGE ---
 
 st.title("🧪 AI Test Case Generator")
@@ -113,6 +136,7 @@ if st.button("🚀 Generate Test Cases"):
             raw = generate_testcases(prompt)
         try:
             test_cases = parse_response(raw)
+            save_history(us_title, test_cases) 
             st.success(f"✅ {len(test_cases)} Test cases generated!")
             df = pd.DataFrame(test_cases)
             df.columns = ["ID", "Title", "Precondition", "Steps", "Expected Result", "Type"]
@@ -128,3 +152,26 @@ if st.button("🚀 Generate Test Cases"):
         except Exception as e:
             st.error("⚠️ AI returned an unexpected format. Please try generating again.")
             st.code(raw)
+
+st.divider()
+st.subheader("📋 Generation History")
+
+history = load_history()
+
+if not history:
+    st.info("No history yet. Generate test cases to see them here.")
+else:
+    for record in reversed(history):
+        with st.expander(f"🕐 {record['timestamp'][:16]}  —  {record['us_title'][:10]}  ({len(record['test_cases'])} cases)"):
+            df_history=pd.DataFrame(record["test_cases"])
+            df_history.columns =["ID", "Title", "Preconditions", "Steps", "Expected Result", "Type"]
+            st.dataframe(df_history, use_container_width=True)
+
+            buffer=convert_to_excel(df_history)
+            st.download_button(
+                label="📥 Download This Session",
+                data=buffer,
+                file_name=f"{record['us_title'][:30]}_history.xlsx",
+                mime="application/vnd.ms-excel",
+                key=record["timestamp"]
+            )  

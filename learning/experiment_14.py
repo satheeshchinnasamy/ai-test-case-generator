@@ -40,9 +40,19 @@ async def run_test_agent_mcp(test_case, session, groq_tools):
         {
             "role": "system",
             "content": """You are a QA automation agent. You have browser tools available.
-First navigate to the page, then take a snapshot to see the elements and their refs.
-Use those refs to interact with the page (type, click, etc).
-After completing the test steps, report whether the test PASSED or FAILED."""
+
+When taking a snapshot, ALWAYS call browser_snapshot with NO arguments 
+(empty {}) — do not provide a filename. This ensures you see the full 
+page structure directly in the response.
+
+Look for elements in the format [ref=eXX] in the snapshot output 
+(e.g. [ref=e37]). Use that EXACT ref value (like "e37") as the target 
+parameter for browser_type and browser_click — never use a description 
+like "username field" as the target.
+
+First navigate to the page, take a snapshot, identify the correct refs, 
+then interact with the page. After completing the test steps, report 
+whether the test PASSED or FAILED based on what you actually observe."""
         },
         {"role": "user", "content": test_case}
     ]
@@ -81,12 +91,13 @@ After completing the test steps, report whether the test PASSED or FAILED."""
                 mcp_result = await session.call_tool(tool_name, arguments)
                 result_text = extract_mcp_text(mcp_result)
 
+                MAX_RESULT_LENGTH = 3000
                 print(f"   Result: {result_text[:150]}...")
 
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
-                    "content": result_text
+                    "content": result_text[:MAX_RESULT_LENGTH]
                 })
         else:
             print(f"\nFinal Report:\n{message.content}")

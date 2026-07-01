@@ -41,7 +41,7 @@ def generate_testcases(prompt):
                 "content":""" You are senior QA Engineer with 15 years of experience.
                 When given a User story, generate test cases and return only JSON object
                 No Explanation. No extra text. No Markdown. Just pure Json.
-                
+
                 Return exactly in this format:
                 {
                     "test_cases":[
@@ -76,6 +76,76 @@ def convert_to_excel(df):
     buffer.seek(0)
     return buffer
 
+def convert_to_excel_with_comments(df):
+    df["Comments"] = ""
+    buffer = BytesIO()
+    df.to_excel(buffer, index=False)
+    buffer.seek(0)
+    return buffer
+
+def revise_from_excel(file, title, description, ac):
+    df = pd.read_excel(file)
+    test_cases = []
+    comments = []
+    for _, row in df.iterrows():
+        test_cases.append({
+            "id": row["ID"],
+            "title": row["Title"],
+            "precondition": row["Precondition"],
+            "steps": row["Steps"],
+            "expected_result": row["Expected Result"],
+            "type": row["Type"]
+        })
+        comments.append(str(row["Comments"]) if pd.notna(row["Comments"]) else "")
+    tcs_with_comments = []
+    for tc, comment in zip(test_cases, comments):
+        entry = dict(tc)
+        entry["review_comment"] = comment if comment and comment != "nan" else "No Changes"
+        tcs_with_comments.append(entry)
+    prompt = f"""
+Title:{title}
+Description:{description}
+Acceptance criteria:{ac}
+
+Test cases with reviewer comments:
+{json.dumps(tcs_with_comments, indent=2)}
+
+Instructions:
+- If review_comment is "No Changes", keep that test case exactly as-is
+- If there is a comment, revise that test case accordingly
+- If a comment says "remove", exclude that test case
+- If a comment says "add [something]", add a new test case at the end
+- Return ONLY revised test cases in the same JSON format, without the review_comment field
+"""
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {
+                "role" : "system",
+                "content" : """You are a senior QA Engineer. Revise test cases based on reviewer comments.
+                Return only a JSON object. No explanation. No markdown.
+                Format:
+                {
+                    "test_cases": [
+                        {
+                            "id": "TC_001",
+                            "title": "...",
+                            "precondition": "...",
+                            "steps": "...",
+                            "expected_result": "...",
+                            "type": "positive"
+                        }
+                    ]
+                }"""
+            },
+            {"role": "user", "content": prompt}
+        ]
+    )
+    raw = response.choices[0].message.content
+    clean = raw.strip().replace("```json", "").replace("```", "").strip()
+    return json.loads(clean)["test_cases"]
+
+
 def save_history(title, test_cases):
     import datetime
     record={
@@ -107,7 +177,7 @@ st.divider()
 
 # --- INPUTS ---
 
-us_title = st.text_input("User Story Title", 
+us_title = st.text_input("User Story Title",
               placeholder="Example: User Login with Email and Password")
 us_description = st.text_area("User Story Description",
              height=100,
@@ -132,21 +202,20 @@ if st.button("🚀 Generate Test Cases"):
         st.warning("Please enter the Acceptance Criteria.")
     else:
         with st.spinner("Generating test cases..."):
-            prompt = build_prompt(us_title, us_description,us_ac)
+            prompt = build_prompt(us_title, us_description, us_ac)
             raw = generate_testcases(prompt)
         try:
             test_cases = parse_response(raw)
-            save_history(us_title, test_cases) 
-            st.success(f"✅ {len(test_cases)} Test cases generated!")
+            st.success(f"✅ {len(test_cases)} test cases generated!")
             df = pd.DataFrame(test_cases)
             df.columns = ["ID", "Title", "Precondition", "Steps", "Expected Result", "Type"]
             st.dataframe(df, use_container_width=True)
 
-            buffer = convert_to_excel(df)
+            buffer = convert_to_excel_with_comments(df)
             st.download_button(
-                label="📥 Download Test Cases as Excel",
+                label="📥 Download for Review (with Comments column)",
                 data=buffer,
-                file_name=f"{us_title[:30]}_test_cases.xlsx",
+                file_name=f"{us_title[:30]}_review.xlsx",
                 mime="application/vnd.ms-excel"
             )
         except Exception as e:
@@ -154,24 +223,35 @@ if st.button("🚀 Generate Test Cases"):
             st.code(raw)
 
 st.divider()
-st.subheader("📋 Generation History")
+st.subheader("📤 Upload Reviewed Excel")
+st.write("Add comments in the Excel, save it, then upload here to revise.")
 
-history = load_history()
+uploaded_file = st.file_uploader("Upload your reviewed Excel", type=["xlsx"])
 
-if not history:
-    st.info("No history yet. Generate test cases to see them here.")
-else:
-    for record in reversed(history):
-        with st.expander(f"🕐 {record['timestamp'][:16]}  —  {record['us_title'][:10]}  ({len(record['test_cases'])} cases)"):
-            df_history=pd.DataFrame(record["test_cases"])
-            df_history.columns =["ID", "Title", "Preconditions", "Steps", "Expected Result", "Type"]
-            st.dataframe(df_history, use_container_width=True)
+if uploaded_file:
+    rev_title = us_title if us_title.strip() else st.text_input("User Story Title (for revision)", key="rev_title")
+    rev_description = us_description if us_description.strip() else st.text_area("Description (for revision)", key="rev_desc")
+    rev_ac = us_ac if us_ac.strip() else st.text_area("Acceptance Criteria (for revision)", key="rev_ac")
+    
+    if st.button("🔄 Revise Based on Comments"):
+        if not rev_title.strip():
+            st.warning("Please enter the User Story Title.")
+        else:
+            with st.spinner("Reading comments and revising..."):
+                revised = revise_from_excel(uploaded_file, rev_title, rev_description, rev_ac)
 
-            buffer=convert_to_excel(df_history)
+            st.success(f"✅ Revised! {len(revised)} test cases.")
+            df_revised = pd.DataFrame(revised)
+            df_revised.columns = ["ID", "Title", "Precondition", "Steps", "Expected Result", "Type"]
+            st.dataframe(df_revised, use_container_width=True)
+
+            save_history(rev_title, revised)
+
+            buffer = convert_to_excel_with_comments(df_revised)
             st.download_button(
-                label="📥 Download This Session",
+                label="📥 Download Revised TCs",
                 data=buffer,
-                file_name=f"{record['us_title'][:30]}_history.xlsx",
+                file_name=f"{rev_title[:30]}_revised.xlsx",
                 mime="application/vnd.ms-excel",
-                key=record["timestamp"]
-            )  
+                key="revised_download"
+            )

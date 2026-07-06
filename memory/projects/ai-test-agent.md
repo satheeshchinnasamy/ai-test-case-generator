@@ -70,11 +70,13 @@ A self-healing, AI-driven QA tool that:
 - US + AC + Description → Agent generates manual test cases
 - Currently: Groq LLaMA 3.1 8b, JSON output, Excel export, history
 
-### Step 2 — Review Loop (🔨 build next)
-- User reviews generated TCs + leaves comments
-- Agent revises based on feedback
-- Loop continues until user approves
-- Needs: chat-style review UI or inline comment system in Streamlit
+### Step 2 — Review Loop (✅ done)
+- Generate TCs → download Excel with Comments column
+- User fills Comments column per TC in Excel
+- Upload Excel back → Agent reads comments → revises only commented TCs
+- Download revised TCs → repeat until satisfied
+- Key functions: `convert_to_excel_with_comments()`, `revise_from_excel()`
+- Deployed live on Streamlit Community Cloud (public URL)
 
 ### Step 3 — Automation Feasibility Assessment (🔨 to build)
 - User uploads approved TCs

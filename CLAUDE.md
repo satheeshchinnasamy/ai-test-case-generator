@@ -50,7 +50,7 @@ Satheesh — aspiring AI engineer. Goal: build a self-healing Playwright test au
 | Step | What | Status |
 |------|------|--------|
 | 1 | US/AC → AI generates manual TCs | ✅ app.py |
-| 2 | User reviews + comments → Agent revises → loop until approved | 🔨 build next |
+| 2 | Download Excel → add comments → upload → Agent revises → loop | ✅ app.py (deployed on Streamlit Cloud) |
 | 3 | Upload approved TCs → Agent assesses automation feasibility | 🔨 to build |
 | 4 | Agent navigates app via MCP → captures snapshots → generates POMs | 🔨 to build (parallel) |
 | 5 | User picks TCs → Agent writes JS/Playwright POM + data-driven scripts | 🔨 to build |

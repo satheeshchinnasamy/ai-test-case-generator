@@ -12,7 +12,8 @@ except:
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
-def build_prompt(title, description, ac, num_cases=12, domain="General"):
+def build_prompt(title, description, ac, num_cases=12, domain="General", doc_context=""):
+    doc_section = f"\nAdditional context from document:\n{doc_context[:3000]}" if doc_context else ""
     return f"""
 Title:{title}
 Description:{description}

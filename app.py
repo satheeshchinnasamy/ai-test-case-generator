@@ -1,6 +1,7 @@
 import streamlit as st
 from llm import build_prompt, generate_testcases, revise_testcases
 from excel import to_df, to_excel_with_comments, read_reviewed_excel
+from utils import extract_text_from_document
 
 st.title("🧪 AI Test Case Generator")
 st.write("Fill in the User Story details and generate test cases instantly.")
@@ -11,6 +12,16 @@ us_description = st.text_area("User Story Description", height=100,
     placeholder="Example: As a user, I want to login with my email and password so that I can access my account.")
 us_ac = st.text_area("Acceptance Criteria", height=150,
     placeholder="1. User can login with valid email and password\n2. Error message shown for invalid credentials")
+design_doc = st.file_uploader(
+    "📎 Upload Design / Requirement Document (optional)",
+    type=["pdf", "docx"]
+)
+
+doc_context=""
+if design_doc:
+    with st.spinner("Reading comment..."):
+        doc_context = extract_text_from_document(design_doc)
+    st.caption(f"✅ {len(doc_context.split())} words extracted from document")
 
 st.divider()
 
@@ -24,7 +35,7 @@ if st.button("🚀 Generate Test Cases"):
     else:
         with st.spinner("Generating test cases..."):
             try:
-                test_cases = generate_testcases(build_prompt(us_title, us_description, us_ac))
+                test_cases = generate_testcases(build_prompt(us_title, us_description, us_ac, doc_context=doc_context))
                 st.success(f"✅ {len(test_cases)} test cases generated!")
                 df = to_df(test_cases)
                 st.dataframe(df, use_container_width=True)

@@ -60,6 +60,11 @@ if uploaded_file:
     rev_description = us_description if us_description.strip() else st.text_area("Description (for revision)", key="rev_desc")
     rev_ac = us_ac if us_ac.strip() else st.text_area("Acceptance Criteria (for revision)", key="rev_ac")
 
+    general_comments = st.text_area(
+    "🗒️ General instructions (optional)",
+    placeholder="e.g., Add 1 scenario for boundary value testing on password length, and 1 for concurrent session login",
+    key="general_comments")
+
     if st.button("🔄 Revise Based on Comments"):
         if not rev_title.strip():
             st.warning("Please enter the User Story Title.")
@@ -71,7 +76,7 @@ if uploaded_file:
                         {**tc, "review_comment": c if c and c != "nan" else "No Changes"}
                         for tc, c in zip(test_cases, comments)
                     ]
-                    revised = revise_testcases(rev_title, rev_description, rev_ac, tcs_with_comments)
+                    revised = revise_testcases(rev_title, rev_description, rev_ac, tcs_with_comments, general_comments=general_comments)
                     st.success(f"✅ Revised! {len(revised)} test cases.")
                     df_revised = to_df(revised)
                     st.dataframe(df_revised, use_container_width=True)

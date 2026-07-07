@@ -44,22 +44,33 @@ def call_llm(provider, model, system, user):
 def _estimate_tokens(text):
     return len(text) // 4  # rough char/4 heuristic, fine for logging
 
-
-def build_prompt(title, description, ac, num_cases=12, domain="General", doc_context=""):
+def build_prompt(title, description, ac, num_cases=None, domain="General", doc_context=""):
     doc_section = f"\nAdditional context from document:\n{doc_context[:3000]}" if doc_context else ""
+    count_instruction = (
+        f"Generate exactly {num_cases} test cases for a {domain} application."
+        if num_cases else
+        f"Generate as many test cases as needed to fully cover the acceptance criteria above "
+        f"for a {domain} application, including positive, negative, and edge cases. Do not pad "
+        f"or artificially limit the count."
+    )
     return f"""
 Title:{title}
 Description:{description}
 Acceptance criteria:{ac}
-Generate exactly {num_cases} test cases for a {domain} application.
+{count_instruction}
 {doc_section}
 """
-
 
 def parse_response(raw):
     clean = raw.strip().replace("```json", "").replace("```", "").strip()
     return json.loads(clean)["test_cases"]
 
+def _ensure_title_prefix(test_cases):
+    for tc in test_cases:
+        title = (tc.get("title") or "").strip()
+        if title and not title.lower().startswith(("verify", "validate")):
+            tc["title"] = f"Verify {title[0].lower() + title[1:]}"
+    return test_cases
 
 def generate_testcases(prompt):
     raw = call_llm(
@@ -86,11 +97,13 @@ def generate_testcases(prompt):
         Generate the number of test cases specified in the user prompt.
         STRICT RULES:
         - Title must describe WHAT is being tested only.
+        - Title must always start with the word "Verify" or "Validate"
         - Title must NEVER start with or include Positive, Negative or Edge Case
         - Type field is the only place where Positive, Negative or Edge Case should appear""",
         user=prompt,
     )
-    return parse_response(raw)
+    test_cases = parse_response(raw)
+    return _ensure_title_prefix(test_cases)
 
 
 # ---------------- Context compaction for the revision loop ----------------
@@ -180,4 +193,5 @@ Instructions:
         user=prompt,
     )
     llm_revised = parse_response(raw)
-    return _merge_revision_results(tcs_with_comments, unchanged_lookup, llm_revised)
+    merged = _merge_revision_results(tcs_with_comments, unchanged_lookup, llm_revised)
+    return _ensure_title_prefix(merged)

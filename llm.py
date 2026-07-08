@@ -14,7 +14,7 @@ except Exception:
     groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     gemini_client = google_genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# --- Model routing: one model per task type ---
+
 MODEL_GENERATE = {"provider": "groq", "model": "llama-3.1-8b-instant"}       # fast/cheap first-pass generation
 MODEL_REVISE = {"provider": "groq", "model": "llama-3.3-70b-versatile"}      # stronger reasoning for applying scattered comments
 MODEL_SUMMARIZE = {"provider": "gemini", "model": "gemini-2.5-flash-lite"}   # cheap, generous free tier — compaction/summarization
@@ -42,7 +42,7 @@ def call_llm(provider, model, system, user):
 
 
 def _estimate_tokens(text):
-    return len(text) // 4  # rough char/4 heuristic, fine for logging
+    return len(text) 
 
 MAX_TEST_CASES = 100
 _ALLOWED_TC_KEYS = {"id", "title", "precondition", "steps", "expected_result", "type"}
@@ -136,8 +136,6 @@ def generate_testcases(prompt):
     return _ensure_title_prefix(test_cases)
 
 
-# ---------------- Context compaction for the revision loop ----------------
-
 def compact_revision_context(tcs_with_comments):
     """
     Splits test cases into 'changed' (has a real reviewer comment) and
@@ -183,7 +181,7 @@ def _merge_revision_results(original_tcs, unchanged_lookup, llm_revised):
         elif tc_id in unchanged_lookup:
             merged.append(unchanged_lookup[tc_id])
             seen.add(tc_id)
-        # else: removed by reviewer comment -> dropped silently
+        
 
     for tc in llm_revised:
         if tc["id"] not in seen:
